@@ -440,9 +440,10 @@ class Translator {
       const annotationInstruction = useAnnotations ? `
       3. **Annotate (Crucial)**: 
          - If a line contains specific cultural references, slang, complex metaphors, or wordplay that might be missed by ${userLang} speakers, add a brief explanation.
-         - **Formatting Rule**: Append the explanation to the end of the translation string using the following HTML format exactly:
-           \`<br><span style="font-size: 0.5em; opacity: 0.7; display: block; line-height: 1.2; margin-top: 2px;">(💡 Explanation)</span>\`
-         - Only add annotations when necessary. Do not add them for every line.
+         - **Formatting Rule**: Append the explanation to the end of the translation string separated by " ||| " (space pipe pipe pipe space).
+           Example: "Translated Text ||| (💡 Explanation)"
+         - Do NOT use HTML tags. Only use the separator " ||| ".
+         - Only add annotations when necessary.
       ` : `
       3. **No Annotations**: Do NOT add any explanations, footnotes, or parentheses. Just translate the lyrics text only.
       `;
