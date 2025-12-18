@@ -431,12 +431,12 @@ class Translator {
 
       const googleUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${currentApiKey}`;
 
-      // [Task 2-1] 사용자 설정값 조회 (기본값: true)
+      // [Task 2-1] Retrieve user setting value (default: true)
       const useAnnotations = StorageManager.get("lyrics-plus:visual:gemini-annotations", true);
 
-      // [Task 2-2] 주석 지침 동적 생성
-      // 켜짐(ON): 주석을 달고 HTML 스타일링을 적용하라는 상세 지침 포함
-      // 꺼짐(OFF): 주석을 절대 달지 말라는 금지 지침 포함
+      // [Task 2-2] Dynamic annotation instruction generation
+      // ON: Include detailed instructions for annotations with HTML styling
+      // OFF: Include prohibition instructions against annotations
       const annotationInstruction = useAnnotations ? `
       3. **Annotate (Crucial)**: 
          - If a line contains specific cultural references, slang, complex metaphors, or wordplay that might be missed by ${userLang} speakers, add a brief explanation.
@@ -447,7 +447,7 @@ class Translator {
       3. **No Annotations**: Do NOT add any explanations, footnotes, or parentheses. Just translate the lyrics text only.
       `;
 
-      // [Task 2-3] 최종 시스템 프롬프트 조립
+      // [Task 2-3] Assemble final system prompt
       const systemPrompt = `
       You are a professional lyrics translator specializing in cultural localization.
 
