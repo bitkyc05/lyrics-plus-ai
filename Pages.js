@@ -1,3 +1,30 @@
+// [Annotation Helper] 주석 구분자를 찾아 HTML로 변환하는 함수
+const processLyricsWithAnnotation = (text) => {
+    if (!text || typeof text !== 'string') return "";
+    
+    // 구분자(|||)로 분리
+    const parts = text.split(" ||| ");
+    const mainContent = parts[0];
+    const annotation = parts[1];
+
+    // 1. 본문은 기존 로직(Ruby/Furigana) 처리
+    let html = Utils.rubyTextToHTML(mainContent);
+
+    // 2. 주석이 있으면 HTML 태그 직접 추가 (XSS 방지를 위해 이스케이프 처리)
+    if (annotation) {
+        // Escape HTML special characters to prevent XSS
+        const escapedAnnotation = annotation
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+        html += `<br><span style="font-size: 0.55em; opacity: 0.7; display: block; line-height: 1.2; margin-top: 4px; font-weight: 300;">${escapedAnnotation}</span>`;
+    }
+    
+    return html;
+};
+
 // CreditFooter removed - debug info is now available in Settings > Debug tab
 const CreditFooter = react.memo(() => null);
 
@@ -917,7 +944,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 						};
 						// React 310 방지: 문자열이고 빈 문자열이 아닐 때만 dangerouslySetInnerHTML 사용
 						if (typeof subText === "string" && subText) {
-							props.dangerouslySetInnerHTML = { __html: Utils.rubyTextToHTML(subText) };
+							props.dangerouslySetInnerHTML = { __html: processLyricsWithAnnotation(subText) };
 							return react.createElement("p", props);
 						}
 						return react.createElement("p", props, safeRenderText(subText));
@@ -930,7 +957,7 @@ const SyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright, isKara 
 						};
 						// React 310 방지: 문자열이고 빈 문자열이 아닐 때만 dangerouslySetInnerHTML 사용
 						if (typeof subText2 === "string" && subText2) {
-							props2.dangerouslySetInnerHTML = { __html: Utils.rubyTextToHTML(subText2) };
+							props2.dangerouslySetInnerHTML = { __html: processLyricsWithAnnotation(subText2) };
 							return react.createElement("p", props2);
 						}
 						return react.createElement("p", props2, safeRenderText(subText2));
@@ -1411,7 +1438,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics = [], provider, copyright,
 						"--sub-lyric-color": CONFIG.visual["inactive-color"],
 					},
 					dangerouslySetInnerHTML: {
-						__html: Utils.rubyTextToHTML(subText),
+						__html: processLyricsWithAnnotation(subText),
 					},
 				}),
 				// React 310 방지: subText2가 문자열이고 비어있지 않을 때만 렌더링
@@ -1421,7 +1448,7 @@ const SyncedExpandedLyricsPage = react.memo(({ lyrics = [], provider, copyright,
 						"--sub-lyric-color": CONFIG.visual["inactive-color"],
 					},
 					dangerouslySetInnerHTML: {
-						__html: Utils.rubyTextToHTML(subText2),
+						__html: processLyricsWithAnnotation(subText2),
 					},
 				})
 			);
@@ -1533,7 +1560,7 @@ const UnsyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright }) => 
 						},
 						// React 310 방지: 문자열이고 비어있지 않을 때만 dangerouslySetInnerHTML 사용
 						...(typeof subText === "string" && subText
-							? { dangerouslySetInnerHTML: { __html: Utils.rubyTextToHTML(subText) } }
+							? { dangerouslySetInnerHTML: { __html: processLyricsWithAnnotation(subText) } }
 							: {}),
 					},
 					typeof subText === "string" ? null : subText
@@ -1554,7 +1581,7 @@ const UnsyncedLyricsPage = react.memo(({ lyrics = [], provider, copyright }) => 
 						},
 						// React 310 방지: 문자열이고 비어있지 않을 때만 dangerouslySetInnerHTML 사용
 						...(typeof showMode2Translation === "string" && showMode2Translation
-							? { dangerouslySetInnerHTML: { __html: Utils.rubyTextToHTML(showMode2Translation) } }
+							? { dangerouslySetInnerHTML: { __html: processLyricsWithAnnotation(showMode2Translation) } }
 							: {}),
 					},
 					typeof showMode2Translation === "string" ? null : showMode2Translation
