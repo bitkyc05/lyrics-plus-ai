@@ -4625,6 +4625,12 @@ const ConfigModal = () => {
               type: ConfigInput,
               defaultValue: "gemini-3-flash-preview",
             },
+            {
+              desc: "Enable Contextual Annotations (Gemini)",
+              key: "gemini-annotations",
+              type: ConfigSlider,
+              defaultValue: true,
+            },
           ],
           onChange: (name, value) => {
             CONFIG.visual[name] = value;
