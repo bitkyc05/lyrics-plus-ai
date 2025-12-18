@@ -398,7 +398,8 @@ class Translator {
         console.warn("[Translator] Status check failed, fallback to local:", e);
       }
 
-      if (serverHasData) {
+      // [2단계 - A] 서버에 데이터가 있고, "강제 재생성(ignoreCache)" 요청이 아닐 때만!
+      if (serverHasData && !ignoreCache) {
         console.log("[Translator] Found on server! Fetching from centralized DB...");
         const serverUrl = "https://lyrics.api.ivl.is/lyrics/translate";
 
