@@ -431,15 +431,43 @@ class Translator {
 
       const googleUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${currentApiKey}`;
 
-      const systemPrompt = `
-      You are a strict lyrics translator. 
-      Output format: JSON object with key "${wantSmartPhonetic ? 'phonetic' : 'translation'}" containing an array of strings.
-      The array length MUST match the input line count exactly.
-      Target Language: ${userLang}
-      Do not add markdown code blocks. Just raw JSON.
+      // [Task 2-1] Retrieve user setting value (default: true)
+      const useAnnotations = StorageManager.get("lyrics-plus:visual:gemini-annotations", true);
+
+      // [Task 2-2] Dynamic annotation instruction generation
+      // ON: Include detailed instructions for annotations with HTML styling
+      // OFF: Include prohibition instructions against annotations
+      const annotationInstruction = useAnnotations ? `
+      3. **Annotate (Crucial)**: 
+         - If a line contains specific cultural references, slang, complex metaphors, or wordplay that might be missed by ${userLang} speakers, add a brief explanation.
+         - **Formatting Rule**: Append the explanation to the end of the translation string using the following HTML format exactly:
+           \`<br><span style="font-size: 0.5em; opacity: 0.7; display: block; line-height: 1.2; margin-top: 2px;">(💡 Explanation)</span>\`
+         - Only add annotations when necessary. Do not add them for every line.
+      ` : `
+      3. **No Annotations**: Do NOT add any explanations, footnotes, or parentheses. Just translate the lyrics text only.
       `;
 
-      const userPrompt = `Input Lyrics:\n${text}`;
+      // [Task 2-3] Assemble final system prompt
+      const systemPrompt = `
+      You are a professional lyrics translator specializing in cultural localization.
+
+      [Task Definitions]
+      1. **Analyze Context**: Before translating, read the entire lyrics to understand the mood, story, and speaker's emotion.
+      2. **Translate**: Translate the lyrics into ${userLang}. Prioritize natural flow and emotional delivery over literal translation.
+      ${annotationInstruction}
+
+      [Constraints]
+      - Output format: JSON object with a key "${wantSmartPhonetic ? 'phonetic' : 'translation'}" containing an array of strings.
+      - **Line Count Rule**: The output array length MUST match the input line count exactly.
+      - No markdown code blocks in the output. Just raw JSON.
+      `;
+
+      const userPrompt = `
+      Input Line Count: ${text.split('\n').length}
+      
+      Lyrics to Translate:
+      ${text}
+      `;
 
       const requestBody = {
         contents: [{ parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }],

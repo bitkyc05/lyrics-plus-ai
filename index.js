@@ -1580,6 +1580,10 @@ const CONFIG = {
     "gemini-model":
       StorageManager.getItem("lyrics-plus:visual:gemini-model") ||
       "gemini-3-flash-preview",
+    "gemini-annotations": StorageManager.get(
+      "lyrics-plus:visual:gemini-annotations",
+      true
+    ),
     translate: StorageManager.get("lyrics-plus:visual:translate", false),
     "furigana-enabled": StorageManager.get(
       "lyrics-plus:visual:furigana-enabled",
