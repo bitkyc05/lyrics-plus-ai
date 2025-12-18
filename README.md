@@ -123,7 +123,8 @@ curl -fsSL https://ivlis.kr/lyrics-plus/install.sh | sh
 2. 우측 하단의 설정 버튼을 클릭합니다.
 3. 고급 탭에서 Gemini API 키를 입력합니다.
    - API 키는 [Google AI Studio](https://aistudio.google.com/apikey?hl=ko)에서 무료로 발급받을 수 있습니다.
-4. 음악을 재생하고 가사 영역에 마우스를 올리면 나타나는 변환 버튼을 클릭하여 번역/발음 모드를 활성화합니다.
+4. 같은 위치에서 원하는 Gemini 모델명을 입력할 수 있습니다. 기본값은 `gemini-3-flash-preview`입니다.
+5. 음악을 재생하고 가사 영역에 마우스를 올리면 나타나는 변환 버튼을 클릭하여 번역/발음 모드를 활성화합니다.
 
 ---
 

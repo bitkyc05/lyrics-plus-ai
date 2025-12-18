@@ -122,7 +122,8 @@ Updates can also be done with the same command.
 2. Click the settings button at the bottom right.
 3. Enter your Gemini API key in the Advanced tab.
    - You can get an API key for free from [Google AI Studio](https://aistudio.google.com/apikey).
-4. Play music and click the conversion button that appears when hovering over the lyrics area to enable translation/pronunciation mode.
+4. In the same place, you can also set the Gemini model name you want to use. The default is `gemini-3-flash-preview`.
+5. Play music and click the conversion button that appears when hovering over the lyrics area to enable translation/pronunciation mode.
 
 ---
 
