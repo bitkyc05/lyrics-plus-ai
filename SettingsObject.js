@@ -142,6 +142,7 @@ const SettingKeys = [
   "lyrics-plus:visual:community-sync-min-confidence",
   "lyrics-plus:visual:community-sync-auto-submit",
   "lyrics-plus:visual:fullscreen-browser-fullscreen",
+  "lyrics-plus:visual:gemini-model",
 ];
 
 const BYTES_FOR_INDEX = Math.ceil(SettingKeys.length / 255);

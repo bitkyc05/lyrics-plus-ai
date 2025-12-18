@@ -1577,6 +1577,9 @@ const CONFIG = {
     "gemini-api-key-romaji":
       StorageManager.getPersisted("lyrics-plus:visual:gemini-api-key-romaji") ||
       "",
+    "gemini-model":
+      StorageManager.getItem("lyrics-plus:visual:gemini-model") ||
+      "gemini-3-flash-preview",
     translate: StorageManager.get("lyrics-plus:visual:translate", false),
     "furigana-enabled": StorageManager.get(
       "lyrics-plus:visual:furigana-enabled",
@@ -2204,6 +2207,7 @@ const Prefetcher = {
     const prefetchPromise = (async () => {
       try {
         console.log(`[Prefetcher] Fetching translation for: ${trackInfo.title} (phonetic: ${needPhonetic}, translation: ${needTranslation})`);
+        const modelName = CONFIG.visual["gemini-model"] || "gemini-3-flash-preview";
 
         // CacheManager에도 저장 (getGeminiTranslation에서 사용)
         const processTranslationResult = (outText) => {
@@ -2257,6 +2261,7 @@ const Prefetcher = {
               wantSmartPhonetic: true,
               provider: lyrics.provider,
               ignoreCache: false,
+              model: modelName,
             });
 
             if (phoneticResponse.phonetic) {
@@ -2282,6 +2287,7 @@ const Prefetcher = {
               wantSmartPhonetic: false,
               provider: lyrics.provider,
               ignoreCache: false,
+              model: modelName,
             });
 
             if (translationResponse.vi) {
@@ -2725,6 +2731,7 @@ class LyricsContainer extends react.Component {
         (line) => !Utils.isSectionHeader(line)
       );
       const text = nonSectionLines.join("\n");
+      const modelName = CONFIG.visual["gemini-model"] || "gemini-3-flash-preview";
 
       // 발음과 번역을 별도로 요청 (둘 다 필요한 경우)
       let phoneticResponse = null;
@@ -2740,6 +2747,7 @@ class LyricsContainer extends react.Component {
           wantSmartPhonetic: true,
           provider: lyricsState.provider,
           ignoreCache: true,
+          model: modelName,
         });
       }
 
@@ -2753,6 +2761,7 @@ class LyricsContainer extends react.Component {
           wantSmartPhonetic: false,
           provider: lyricsState.provider,
           ignoreCache: true,
+          model: modelName,
         });
       }
 
@@ -3679,6 +3688,7 @@ class LyricsContainer extends react.Component {
       const romajiKey = StorageManager.getPersisted(
         `${APP_NAME}:visual:gemini-api-key-romaji`
       );
+      const modelName = CONFIG.visual["gemini-model"] || "gemini-3-flash-preview";
 
       // Determine mode type and API key
       let wantSmartPhonetic = false;
@@ -3687,10 +3697,10 @@ class LyricsContainer extends react.Component {
       if (mode === "gemini_romaji") {
         // Use Smart Phonetic logic for the unified Romaji, Romaja, Pinyin button
         wantSmartPhonetic = true;
-        apiKey = "no";
+        apiKey = romajiKey || viKey;
       } else {
         // Default to Korean
-        apiKey = "no";
+        apiKey = viKey;
       }
 
       if (!apiKey || !Array.isArray(lyrics) || lyrics.length === 0) {
@@ -3774,6 +3784,7 @@ class LyricsContainer extends react.Component {
         text,
         wantSmartPhonetic,
         provider: lyricsState.provider,
+        model: modelName,
       })
         .then((response) => {
           let outText;

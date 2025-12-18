@@ -4619,6 +4619,12 @@ const ConfigModal = () => {
               key: "gemini-api-key",
               type: ConfigKeyList,
             },
+            {
+              desc: "Gemini Model Name (Default: gemini-3-flash-preview)",
+              key: "gemini-model",
+              type: ConfigInput,
+              defaultValue: "gemini-3-flash-preview",
+            },
           ],
           onChange: (name, value) => {
             CONFIG.visual[name] = value;

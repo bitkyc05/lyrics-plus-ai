@@ -299,6 +299,7 @@ class Translator {
     wantSmartPhonetic = false,
     provider = null,
     ignoreCache = false,
+    model = "gemini-3-flash-preview",
   }) {
     if (!text?.trim()) throw new Error("No text provided for translation");
 
@@ -347,6 +348,10 @@ class Translator {
 
     // 사용자의 현재 언어 가져오기
     const userLang = I18n.getCurrentLanguage();
+    const selectedModel =
+      model ||
+      StorageManager.getItem("lyrics-plus:visual:gemini-model") ||
+      "gemini-3-flash-preview";
 
     // 1. 로컬 캐시 먼저 확인 (ignoreCache가 아닌 경우)
     if (!ignoreCache) {
@@ -380,222 +385,101 @@ class Translator {
 
     // 실제 API 호출을 수행하는 함수
     const executeRequest = async (currentApiKey) => {
-      const endpoints = [
-        "https://lyrics.api.ivl.is/lyrics/translate",
-      ];
-
-      const userHash = Utils.getUserHash();
-
-      const body = {
-        trackId: finalTrackId,
-        artist,
-        title,
-        text,
-        wantSmartPhonetic,
-        provider,
-        apiKey: currentApiKey,
-        ignore_cache: ignoreCache,
-        lang: userLang,
-        userHash,
-      };
-
-      // API 요청 로깅 시작
-      const category = wantSmartPhonetic ? 'phonetic' : 'translation';
-      let logId = null;
-      if (window.ApiTracker) {
-        logId = window.ApiTracker.logRequest(category, endpoints[0], {
-          trackId: finalTrackId,
-          artist,
-          title,
-          lang: userLang,
-          wantSmartPhonetic,
-          textLength: text?.length || 0
-        });
-      }
-
-      const tryFetch = async (url) => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 800000);
-
-        try {
-          const res = await fetch(url, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            body: JSON.stringify(body),
-            signal: controller.signal,
-            mode: "cors",
-          });
-
-          clearTimeout(timeoutId);
-          return res;
-        } catch (error) {
-          clearTimeout(timeoutId);
-          throw error;
-        }
-      };
+      const statusUrl = `https://lyrics.api.ivl.is/lyrics/translate?action=status&trackId=${finalTrackId}&lang=${userLang}&isPhonetic=${wantSmartPhonetic}`;
+      let serverHasData = false;
 
       try {
-        let res;
-        let lastError;
-
-        for (const url of endpoints) {
-          try {
-            res = await tryFetch(url);
-            if (res.ok) {
-              break;
-            }
-          } catch (error) {
-            lastError = error;
-            continue;
-          }
+        const statusRes = await fetch(statusUrl);
+        const statusData = await statusRes.json();
+        if (statusData.status === "completed") {
+          serverHasData = true;
         }
+      } catch (e) {
+        console.warn("[Translator] Status check failed, fallback to local:", e);
+      }
 
-        if (!res || !res.ok) {
-          if (res) {
-            const errorData = await res
-              .json()
-              .catch(() => ({ message: "Unknown error" }));
+      if (serverHasData) {
+        console.log("[Translator] Found on server! Fetching from centralized DB...");
+        const serverUrl = "https://lyrics.api.ivl.is/lyrics/translate";
 
-            // 진행 중 응답 처리 (202): 재시도 없이 기존 요청 대기
-            if (res.status === 202 && errorData.status === "translation_in_progress") {
-              console.log(`[Translator] Translation in progress for: ${requestKey}, waiting...`);
+        const res = await fetch(serverUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            trackId: finalTrackId,
+            artist,
+            title,
+            text,
+            wantSmartPhonetic,
+            provider,
+            apiKey: currentApiKey,
+            ignore_cache: ignoreCache,
+            lang: userLang,
+            userHash: Utils.getUserHash(),
+          }),
+        });
 
-              // 이미 재시도 대기 중인 경우 해당 Promise 반환
-              if (_pendingRetries.has(requestKey)) {
-                return _pendingRetries.get(requestKey);
-              }
-
-              // 일정 시간 후 자동 재시도 (폴링)
-              const retryPromise = new Promise((resolve, reject) => {
-                const retryDelay = Math.min((errorData.retry_after || 5) * 1000, 30000);
-                const maxRetries = 20; // 최대 20회 재시도 (약 100초)
-                let retryCount = 0;
-
-                const pollStatus = async () => {
-                  retryCount++;
-
-                  try {
-                    // 상태 확인 API 호출
-                    const statusUrl = `https://lyrics.api.ivl.is/lyrics/translate?action=status&trackId=${finalTrackId}&lang=${userLang}&isPhonetic=${wantSmartPhonetic}`;
-                    const statusRes = await fetch(statusUrl);
-                    const statusData = await statusRes.json();
-
-                    if (statusData.status === "completed") {
-                      // 완료되었으면 다시 요청 (캐시에서 가져옴)
-                      _pendingRetries.delete(requestKey);
-                      const result = await Translator.callGemini({
-                        trackId: finalTrackId,
-                        artist,
-                        title,
-                        text,
-                        wantSmartPhonetic,
-                        provider,
-                        ignoreCache: false,
-                      });
-                      resolve(result);
-                      return;
-                    } else if (statusData.status === "failed" || statusData.status === "not_found") {
-                      _pendingRetries.delete(requestKey);
-                      reject(new Error(statusData.message || "Translation failed"));
-                      return;
-                    }
-
-                    // 아직 진행 중이면 계속 대기
-                    if (retryCount < maxRetries) {
-                      setTimeout(pollStatus, retryDelay);
-                    } else {
-                      _pendingRetries.delete(requestKey);
-                      reject(new Error("Translation timeout - please try again later"));
-                    }
-                  } catch (pollError) {
-                    if (retryCount < maxRetries) {
-                      setTimeout(pollStatus, retryDelay);
-                    } else {
-                      _pendingRetries.delete(requestKey);
-                      reject(pollError);
-                    }
-                  }
-                };
-
-                setTimeout(pollStatus, retryDelay);
-              });
-
-              _pendingRetries.set(requestKey, retryPromise);
-              return retryPromise;
-            }
-
-            if (res.status === 429) {
-              throw new Error("429 Rate Limit Exceeded");
-            }
-
-            if (res.status === 403) {
-              throw new Error("403 Forbidden");
-            }
-
-            if (errorData.error && errorData.message) {
-              throw new Error(errorData.message);
-            }
-
-            // 최적화 #7 - 표준화된 에러 처리 사용
-            const errorMessage = handleAPIError(res.status, errorData);
-            throw new Error(errorMessage);
-          }
-
-          throw lastError || new Error("All endpoints failed");
-        }
-
+        if (!res.ok) throw new Error("Server fetch failed");
         const data = await res.json();
 
-        if (data.error) {
-          // 최적화 #7 - 표준화된 에러 처리 사용
-          const errorCode = data.code;
-          const errorConfig = API_ERROR_MESSAGES[400];
-
-          if (errorConfig[errorCode]) {
-            const errorMsg = errorConfig[errorCode];
-            if (window.ApiTracker && logId) {
-              window.ApiTracker.logResponse(logId, { error: errorCode }, 'error', errorMsg);
-            }
-            throw new Error(errorMsg);
-          }
-
-          // 기본 메시지
-          const errorMessage = data.message || I18n.t("translator.translationFailed");
-          if (window.ApiTracker && logId) {
-            window.ApiTracker.logResponse(logId, { error: data.code || 'unknown' }, 'error', errorMessage);
-          }
-          if (errorMessage.includes("API") || errorMessage.includes("키")) {
-            throw new Error(I18n.t("translator.apiKeyError"));
-          }
-          throw new Error(errorMessage);
-        }
-
-        // API 성공 응답 로깅
-        if (window.ApiTracker && logId) {
-          const responseInfo = {
-            lineCount: data.phonetic?.length || data.translation?.length || 0,
-            cached: false
-          };
-          window.ApiTracker.logResponse(logId, responseInfo, 'success');
-        }
-
-        // 성공 시 로컬 캐시에 저장 (백그라운드)
         LyricsCache.setTranslation(finalTrackId, userLang, wantSmartPhonetic, data).catch(() => { });
-
         return data;
-      } catch (error) {
-        // 에러 발생 시 로깅
-        if (window.ApiTracker && logId) {
-          const errorMsg = error.name === "AbortError" ? 'timeout' : error.message;
-          window.ApiTracker.logResponse(logId, null, 'error', errorMsg);
+      }
+
+      console.log(`[Translator] Not on server. Using Local Model: ${selectedModel}`);
+
+      const googleUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${currentApiKey}`;
+
+      const systemPrompt = `
+      You are a strict lyrics translator. 
+      Output format: JSON object with key "${wantSmartPhonetic ? 'phonetic' : 'translation'}" containing an array of strings.
+      The array length MUST match the input line count exactly.
+      Target Language: ${userLang}
+      Do not add markdown code blocks. Just raw JSON.
+      `;
+
+      const userPrompt = `Input Lyrics:\n${text}`;
+
+      const requestBody = {
+        contents: [{ parts: [{ text: systemPrompt + "\n\n" + userPrompt }] }],
+        generationConfig: {
+          temperature: 0.3,
+          responseMimeType: "application/json"
         }
-        if (error.name === "AbortError") {
-          throw new Error(I18n.t("translator.requestTimeout"));
+      };
+
+      const localRes = await fetch(googleUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!localRes.ok) {
+        const errText = await localRes.text();
+        throw new Error(`Google API Error (${localRes.status}): ${errText}`);
+      }
+
+      const rawData = await localRes.json();
+
+      try {
+        let textResponse = rawData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        textResponse = textResponse.replace(/^```json\s*/, "").replace(/\s*```$/, "");
+
+        const parsedData = JSON.parse(textResponse);
+
+        if (!parsedData.vi && parsedData.translation) {
+          parsedData.vi = parsedData.translation;
         }
-        throw error;
+        if (wantSmartPhonetic && parsedData.translation && !parsedData.phonetic) {
+          parsedData.phonetic = parsedData.translation;
+        }
+
+        LyricsCache.setTranslation(finalTrackId, userLang, wantSmartPhonetic, parsedData).catch(() => { });
+
+        return parsedData;
+      } catch (parseError) {
+        console.error("JSON Parse Error:", parseError, rawData);
+        throw new Error("Failed to parse Gemini response");
       }
     };
 
